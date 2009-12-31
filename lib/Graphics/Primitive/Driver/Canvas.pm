@@ -126,17 +126,12 @@ sub _draw_complex_border {
         ? $bl->width / 2 : 0;
 
     if($thalf) {
+        $self->set_style($br);
         $self->add_js("// Begin Top Border\n");
         $self->add_js("ctx.beginPath();\n");
         my $y = $mt + $thalf;
         $self->set_style($bt);
         $self->add_js("ctx.moveTo($ml,$y);\n");
-        # $context->move_to($ml, $mt + $thalf);
-        # $context->set_source_rgba($bt->color->as_array_with_alpha);
-
-        # $context->set_line_width($bt->width);
-        # $context->rel_line_to($width - $mr - $ml, 0);
-        # my $x = $ml + $width - $mr;
         $self->add_js("ctx.lineTo($width, $y);\n");
 
         my $dash = $bt->dash_pattern;
@@ -153,11 +148,11 @@ sub _draw_complex_border {
     }
 
     if($rhalf) {
+        $self->set_style($br);
         $self->add_js("// Begin Right Border\n");
         $self->add_js("ctx.beginPath();\n");
         my $x = $width - $mr - $rhalf;
         # $context->move_to($width - $mr - $rhalf, $mt);
-        $self->set_style($br);
         $self->add_js("ctx.moveTo($x,$mt);\n");
         # $context->set_source_rgba($br->color->as_array_with_alpha);
 
@@ -178,11 +173,18 @@ sub _draw_complex_border {
     }
 
     if($bhalf) {
+        $self->set_style($bb);
+        $self->add_js("//Begin Bottom Border\n");
+        $self->add_js("ctx.beginPath();\n");
+        my $y = $height - $mb - $bhalf;
+        $self->add_js("ctx.moveTo($mr,$y);\n");
         # $context->move_to($width - $mr, $height - $bhalf - $mb);
         # $context->set_source_rgba($bb->color->as_array_with_alpha);
 
         # $context->set_line_width($bb->width);
         # $context->rel_line_to(-($width - $mb), 0);
+        my $x = $width - $mr;
+        $self->add_js("ctx.lineTo($x,$y);\n");
 
         my $dash = $bb->dash_pattern;
         if(defined($dash) && scalar(@{ $dash })) {
@@ -190,12 +192,22 @@ sub _draw_complex_border {
         }
 
         # $context->stroke;
+        $self->add_js("ctx.stroke();\n");
+        $self->add_js("// End Bottom Border\n");
     }
 
     if($lhalf) {
+        $self->set_style($bl);
+        $self->add_js("//Begin Bottom Border\n");
+        $self->add_js("ctx.beginPath();\n");
+
+        my $x = $ml + $lhalf;
+        $self->add_js("ctx.moveTo($x, $mt);\n");
         # $context->move_to($ml + $lhalf, $mt);
         # $context->set_source_rgba($bl->color->as_array_with_alpha);
 
+        my $y = $height - $mb;
+        $self->add_js("ctx.lineTo($x, $y);\n");
         # $context->set_line_width($bl->width);
         # $context->rel_line_to(0, $height - $mb);
 
@@ -206,6 +218,9 @@ sub _draw_complex_border {
 
         # $context->stroke;
         # $context->set_dash(0, []);
+
+        $self->add_js("ctx.stroke();\n");
+        $self->add_js("// End Left Border\n");
     }
 }
 
