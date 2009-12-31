@@ -3,7 +3,7 @@ use strict;
 use Graphics::Color::RGB;
 use Graphics::Primitive::Border;
 use Graphics::Primitive::Canvas;
-use Graphics::Primitive::Driver::GD;
+use Graphics::Primitive::Driver::Canvas;
 use Graphics::Primitive::Operation::Fill;
 use Graphics::Primitive::Operation::Stroke;
 use Graphics::Primitive::Paint::Solid;
@@ -43,9 +43,9 @@ my $fill = Graphics::Primitive::Operation::Fill->new(
 );
 $c->do($fill);
 
-my $driver = Graphics::Primitive::Driver::GD->new;
+my $driver = Graphics::Primitive::Driver::Canvas->new;
 
 $driver->prepare($c);
 $driver->finalize($c);
 $driver->draw($c);
-$driver->write('foo.png');
+$driver->write('foo.js');

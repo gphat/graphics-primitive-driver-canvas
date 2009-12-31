@@ -44,10 +44,12 @@ sub data {
 around('draw', sub {
     my ($cont, $class, $comp) = @_;
 
+    # $class->add_js("ctx.save();\n");
     $class->add_js("ctx.translate(".$comp->origin->to_string.");\n");
     my ($mt, $mr, $mb, $ml) = $comp->margins->as_array;
     $class->add_js("ctx.rect($mr, $mt, ".($comp->width - $mr - $ml).",".($comp->height - $mt - $mb).");\n");
     $class->add_js("ctx.clip();\n");
+    # $class->add_js("ctx.restore();\n");
 
     $cont->($class, $comp);
 });
@@ -67,11 +69,14 @@ sub set_style {
     unless(defined($color)) {
         $color = $brush->color;
     }
+    $self->add_js("\n\n");
     $self->add_js("ctx.fillStyle = \"rgba(".$color->as_integer_string.");\"\n");
     $self->add_js("ctx.strokeStyle = \"rgba(".$color->as_integer_string.");\"\n");
-    $self->add_js("ctx.lineWidth = ".$brush->width.";\n");
-    $self->add_js("ctx.lineCap = '".$brush->line_cap."';\n");
-    $self->add_js("ctx.lineJoin = '".$brush->line_join."';\n");
+    if(defined($brush)) {
+        $self->add_js("ctx.lineWidth = ".$brush->width.";\n");
+        $self->add_js("ctx.lineCap = '".$brush->line_cap."';\n");
+        $self->add_js("ctx.lineJoin = '".$brush->line_join."';\n");
+    }
 }
 
 sub _draw_component {
@@ -249,9 +254,11 @@ sub _draw_simple_border {
     my $w = $comp->inside_width + $bswidth;
     my $h = $comp->inside_height + $bswidth;
 
+    $self->add_js("// Begin Simple Border\n");
     $self->add_js("ctx.beginPath();\n");
     $self->add_js("ctx.rect($x,$y,$w,$h);\n");
     $self->add_js("ctx.stroke();\n");
+    $self->add_js("// End Simple Border\n\n");
 
     # Reset dashing
     # $context->set_dash(0, []);
@@ -362,17 +369,14 @@ sub _draw_textbox {
 sub _draw_arc {
     my ($self, $arc) = @_;
 
-    my $context = $self->cairo;
+    $self->add_js("// Begin Arc\n");
     my $o = $arc->origin;
     if($arc->angle_start > $arc->angle_end) {
-        $context->arc_negative(
-            $o->x, $o->y, $arc->radius, $arc->angle_start, $arc->angle_end
-        );
+        $self->add_js("ctx.arc(".$o->x.",".$o->y.",".$arc->radius.",".$arc->angle_start.",".$arc->angle_end.",true);\n");
     } else {
-        $context->arc(
-            $o->x, $o->y, $arc->radius, $arc->angle_start, $arc->angle_end
-        );
+        $self->add_js("ctx.arc(".$o->x.",".$o->y.",".$arc->radius.",".$arc->angle_start.",".$arc->angle_end.",false);\n");
     }
+    $self->add_js("// End Arc\n");
 }
 
 sub _draw_bezier {
@@ -412,17 +416,24 @@ sub _draw_circle {
 sub _draw_ellipse {
     my ($self, $ell) = @_;
 
-    my $cairo = $self->cairo;
     my $o = $ell->origin;
 
-    $cairo->new_sub_path;
-    $cairo->save;
-    $cairo->translate($o->x, $o->y);
-    $cairo->scale($ell->width / 2, $ell->height / 2);
-    $cairo->arc(
-        $o->x, $o->y, 1, 0, pi2
-    );
-    $cairo->restore;
+    $self->add_js("// Begin Ellipse\n");
+    # $self->add_js("ctx.beginPath();\n");
+    $self->add_js("ctx.save();\n");
+    $self->add_js("ctx.translate(".$o->x.",".$o->y.");\n");
+    # $cairo->new_sub_path;
+    # $cairo->save;
+    # $cairo->translate($o->x, $o->y);
+    $self->add_js("ctx.scale(".($ell->width / 2).",".($ell->height / 2).");\n");
+    # $cairo->scale($ell->width / 2, $ell->height / 2);
+    $self->add_js("ctx.arc(".$o->x.",".$o->y.",1,2,".pi2.",false);\n");
+    # $cairo->arc(
+    #     $o->x, $o->y, 1, 0, pi2
+    # );
+    $self->add_js("ctx.restore();\n");
+    $self->add_js("// End Ellipse\n");
+    # $cairo->restore;
 }
 
 sub _draw_image {
@@ -494,17 +505,17 @@ sub _draw_image {
 sub _draw_path {
     my ($self, $path, $op) = @_;
 
-    my $context = $self->cairo;
+
 
     # If preserve count is set we've "preserved" a path that's made up 
     # of X primitives.  Set the sentinel to the the count so we skip that
     # many primitives
     my $pc = $self->_preserve_count;
-    if($pc) {
-        $self->_preserve_count(0);
-    } else {
-        $context->new_path;
-    }
+    # if($pc) {
+    #     $self->_preserve_count(0);
+    # } else {
+        $self->add_js("ctx.beginPath();\n");
+    # }
 
     my $pcount = $path->primitive_count;
     for(my $i = $pc; $i < $pcount; $i++) {
@@ -514,9 +525,7 @@ sub _draw_path {
         if(defined($hints)) {
             unless($hints->{contiguous}) {
                 my $ps = $prim->point_start;
-                $context->move_to(
-                    $ps->x, $ps->y
-                );
+                $self->add_js("ctx.moveTo(".$ps->x.",".$ps->y.");\n");
             }
         }
 
@@ -552,9 +561,10 @@ sub _draw_path {
 sub _draw_line {
     my ($self, $line) = @_;
 
-    my $context = $self->cairo;
     my $end = $line->end;
-    $context->line_to($end->x, $end->y);
+    $self->add_js("// Begin Line\n");
+    $self->add_js("ctx.lineTo(".$end->x.",".$end->y.");\n");
+    $self->add_js("// End Line\n");
 }
 
 sub _draw_polygon {
@@ -581,7 +591,7 @@ sub _draw_rectangle {
 sub _do_fill {
     my ($self, $fill) = @_;
 
-    my $context = $self->cairo;
+    # my $context = $self->cairo;
     my $paint = $fill->paint;
 
     # FIXME Check::ISA?
@@ -589,39 +599,41 @@ sub _do_fill {
 
         my $patt;
         if($paint->isa('Graphics::Primitive::Paint::Gradient::Linear')) {
-            $patt = Cairo::LinearGradient->create(
-                $paint->line->start->x, $paint->line->start->y,
-                $paint->line->end->x, $paint->line->end->y,
-            );
+            # $patt = Cairo::LinearGradient->create(
+            #     $paint->line->start->x, $paint->line->start->y,
+            #     $paint->line->end->x, $paint->line->end->y,
+            # );
         } elsif($paint->isa('Graphics::Primitive::Paint::Gradient::Radial')) {
-            $patt = Cairo::RadialGradient->create(
-                $paint->start->origin->x, $paint->start->origin->y,
-                $paint->start->radius,
-                $paint->end->origin->x, $paint->end->origin->y,
-                $paint->end->radius
-            );
+            # $patt = Cairo::RadialGradient->create(
+            #     $paint->start->origin->x, $paint->start->origin->y,
+            #     $paint->start->radius,
+            #     $paint->end->origin->x, $paint->end->origin->y,
+            #     $paint->end->radius
+            # );
         } else {
             croak('Unknown gradient type: '.ref($paint));
         }
 
         foreach my $stop ($paint->stops) {
             my $color = $paint->get_stop($stop);
-            $patt->add_color_stop_rgba(
-                $stop, $color->red, $color->green,
-                $color->blue, $color->alpha
-            );
+            # $patt->add_color_stop_rgba(
+            #     $stop, $color->red, $color->green,
+            #     $color->blue, $color->alpha
+            # );
         }
-        $context->set_source($patt);
+        # $context->set_source($patt);
 
     } elsif($paint->isa('Graphics::Primitive::Paint::Solid')) {
-        $context->set_source_rgba($paint->color->as_array_with_alpha);
+        $self->set_style(undef, $paint->color);
+        # $context->set_source_rgba($paint->color->as_array_with_alpha);
     }
 
     if($fill->preserve) {
-        $context->fill_preserve;
+        # $context->fill_preserve;
     } else {
-        $context->fill;
+        # $context->fill;
     }
+    $self->add_js("ctx.fill();\n");
 }
 
 sub _do_stroke {
@@ -629,25 +641,27 @@ sub _do_stroke {
 
     my $br = $stroke->brush;
 
-    my $context = $self->cairo;
-    $context->set_source_rgba($br->color->as_array_with_alpha);
-    $context->set_line_cap($br->line_cap);
-    $context->set_line_join($br->line_join);
-    $context->set_line_width($br->width);
+    $self->set_style($br);
+    $self->add_js("ctx.stroke();\n");
+    # my $context = $self->cairo;
+    # $context->set_source_rgba($br->color->as_array_with_alpha);
+    # $context->set_line_cap($br->line_cap);
+    # $context->set_line_join($br->line_join);
+    # $context->set_line_width($br->width);
 
     my $dash = $br->dash_pattern;
     if(defined($dash) && scalar(@{ $dash })) {
-        $context->set_dash(0, @{ $dash });
+        # $context->set_dash(0, @{ $dash });
     }
 
     if($stroke->preserve) {
-        $context->stroke_preserve;
+        # $context->stroke_preserve;
     } else {
-        $context->stroke;
+        # $context->stroke;
     }
 
     # Reset dashing
-    $context->set_dash(0, []);
+    # $context->set_dash(0, []);
 }
 
 sub _finish_page {
